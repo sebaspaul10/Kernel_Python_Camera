@@ -2,46 +2,46 @@ import cv2
 import time
 import os
 
-# Path to the signal file created/managed by the kernel thread
-SIGNAL_FILE = "/tmp/motion_device"
+DEVICE_FILE = "/dev/motion_device"
 
 def main():
-    # Open the USB camera (adjust index if necessary)
-    camera = cv2.VideoCapture(0, cv2.CAP_V4L2)  # Force V4L2 backend on Linux
+    # Open the USB camera
+    camera = cv2.VideoCapture(0, cv2.CAP_V4L2)
     if not camera.isOpened():
         print("Error: Could not access the USB camera.")
         return
 
-    print("Waiting for signal from the kernel thread...")
+    print("Waiting for motion signal from the kernel module...")
 
     while True:
-        # Check if the signal file exists
-        if os.path.exists(SIGNAL_FILE):
-            print("Signal received from kernel thread. Opening camera...")
+        try:
+            with open(DEVICE_FILE, 'r') as device:
+                motion_status = device.read().strip()
+                if "Motion detected" in motion_status:
+                    print("Motion detected! Opening camera...")
 
-            while True:
-                # Capture a frame from the camera
-                ret, frame = camera.read()
-                if not ret:
-                    print("Failed to capture image from camera.")
-                    break
+                    while True:
+                        ret, frame = camera.read()
+                        if not ret:
+                            print("Failed to capture image from camera.")
+                            break
 
-                # Display the captured frame
-                cv2.imshow("USB Camera", frame)
+                        cv2.imshow("USB Camera", frame)
 
-                # Exit the loop if 'q' is pressed
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                        if cv2.waitKey(1) & 0xFF == ord('q'):
+                            break
 
-            print("Closing camera. Waiting for the next signal...")
-            # Break out of the inner loop and continue waiting for the next signal
+                    print("Closing camera. Waiting for the next signal...")
 
-        # Small delay to avoid excessive CPU usage
+        except FileNotFoundError:
+            print(f"Error: Device file {DEVICE_FILE} not found.")
+            break
+
         time.sleep(0.5)
 
-    # Release the camera and close all OpenCV windows
     camera.release()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
+
